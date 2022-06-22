@@ -252,3 +252,169 @@ func main() {
 ```
 
 匿名字段并不代表没有字段名，而是默认会采用类型名作为字段名，结构体要求字段名称必须唯一，因此一个结构体中同种类型的匿名字段只能有一个。
+
+#### 嵌套结构体
+
+一个结构体中可以嵌套包含另一个结构体或结构体指针。
+
+```go
+//Address 地址结构体
+type Address struct {
+	Province string
+	City     string
+}
+
+//User 用户结构体
+type User struct {
+	Name    string
+	Gender  string
+	address Address //也可单写为Address 
+    //嵌套的Address结构体也可以采用匿名字段的方式 叫做匿名嵌套结构体
+}
+```
+
+当访问结构体成员时会先在结构体中查找该字段，找不到再去嵌套的匿名字段中查找
+
+**匿名嵌套结构体**内部可能存在相同的字段名。在这种情况下为了避免歧义需要通过指定具体的内嵌结构体字段名。
+
+```go
+//Address 地址结构体
+type Address struct {
+	Province   string
+	City       string
+	CreateTime string
+}
+
+//Email 邮箱结构体
+type Email struct {
+	Account    string
+	CreateTime string
+}
+
+//User 用户结构体
+type User struct {
+	Name   string
+	Gender string
+	Address
+	Email
+}
+
+func main() {
+	var user3 User
+	user3.Name = "沙河娜扎"
+	user3.Gender = "男"
+	// user3.CreateTime = "2019" //ambiguous selector user3.CreateTime
+	user3.Address.CreateTime = "2000" //指定Address结构体中的CreateTime
+	user3.Email.CreateTime = "2000"   //指定Email结构体中的CreateTime
+}
+```
+
+#### 结构体的模拟继承
+
+```go
+type animal struct{
+	name string
+}
+//为animal实现一个方法
+func (a animal) move(){
+    fmt.Println("%s在移动",a.name)
+}
+type dog struct{
+    feet uint8 //狗的脚数
+    animal   //animal拥有的方法 此时dog也有了
+}
+//为dog实现一个wang()方法
+func (d dog)wang(){
+    fmt.Println("%s会汪汪叫",d.name) //它会在dog结构体中找name字段，
+    								//找不到会去匿名嵌套结构体animal中找
+}
+
+func main() {
+	d1 := dog{
+		Feet: 4,
+		animal: animal{ //注意嵌套的是结构体指针
+			name: "乐乐",
+		},
+	}
+	d1.wang() //乐乐会汪汪叫
+	d1.move() //乐乐在移动！
+}
+```
+
+#### 结构体与JSON
+
+JSON(JavaScript Object Notation) 是一种轻量级的数据交换格式。易于人阅读和编写。同时也易于机器解析和生成。
+
+1.把Go中结构体变量-->json格式的字符串
+
+2.json格式字符串-->Go中能识别的结构体变量
+
+`Tag`是结构体的元信息，可以在运行的时候通过反射的机制读取出来。 `Tag`在结构体字段的后方定义，由一对**反引号**包裹起来，具体的格式如下
+
+```bash
+`key1:"value1" key2:"value2"`
+```
+
+```go
+type person struct {
+  Name string //字段名必须要大写才能被其他包识别到,在当前包中能访问小写开头的
+    Age  int `json:"age" ini:"age"` //表示在json、ini格式下的字段名为age
+
+}
+func main() {
+  p1 := person{
+    Name: "Newkami",
+   	Age:  18,
+  }
+  b, err := json.Marshal(p1) //序列化  
+  if err != nil {
+​    fmt.Println("marshal failed:%v", err)
+​    return
+  }
+  fmt.Printf("%#v", string(b))  //"{\"name\":\"Newkami\",\"Age\":18}"
+}
+```
+
+**反序列化**
+
+```go
+var output person
+json.Unmarshal([]byte(str), &output) //传指针为了能在Unmarshal内部修改output的值
+```
+
+
+
+#### 补充
+
+因为slice和map这两种数据类型都包含了指向底层数据的指针，因此我们在需要复制它们时要特别注意。我们来看下面的例子：
+
+```go
+type Person struct {
+	name   string
+	age    int8
+	dreams []string
+}
+
+func (p *Person) SetDreams(dreams []string) {
+	p.dreams = dreams
+}
+
+func main() {
+	p1 := Person{name: "小王子", age: 18}
+	data := []string{"吃饭", "睡觉", "打豆豆"}
+	p1.SetDreams(data)
+
+	// 你真的想要修改 p1.dreams 吗？
+	data[1] = "不睡觉"
+	fmt.Println(p1.dreams)  // ?
+}
+```
+
+正确的做法是在方法中使用传入的slice的拷贝进行结构体赋值。
+
+```go
+func (p *Person) SetDreams(dreams []string) {
+	p.dreams = make([]string, len(dreams))
+	copy(p.dreams, dreams)
+}
+```

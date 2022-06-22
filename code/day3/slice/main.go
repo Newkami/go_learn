@@ -20,4 +20,5 @@ func main() {
 	fmt.Println(s4)      // [5 6]
 	fmt.Println(len(s4)) //2
 	fmt.Println(cap(s4)) //4  s4 是基于 s3切片的 但底层数组还是由a1决定
+
 }
